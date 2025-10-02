@@ -10,8 +10,8 @@
 #include "lwip/tcp.h"
 #include "lwip/pbuf.h"
 
-#define SERVER_IP "192.168.1.68"        // IP do servidor
-#define SERVER_PORT 8080    // Número da porta que o servidor está rodando
+#define SERVER_IP "192.168.1.88"        // IP do servidor
+#define SERVER_PORT 3000    // Número da porta que o servidor está rodando
 #define SERVER_PATH "/dados"      // Nome da rota
 
 err_t sent_callback(void *arg, struct tcp_pcb *tpcb, u16_t len);

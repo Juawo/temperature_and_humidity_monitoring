@@ -62,10 +62,10 @@ void create_request(char *id, float temperature, float humidity)
     char json_request[256];
 
     snprintf(json_request, sizeof(json_request),
-             "{ \"id\" : \"%s\", "
-             "\"Temperature\" : %.2f, "
-             "\"Humidade\" : %.2f }",
-             id, temperature, humidity);
+             "{ \"temperatura\" : %.2f, "
+             "\"umidade\" : %.2f, "
+             "\"codigoPlaca\" : \"%s\" }",
+            temperature, humidity, id);
 
     printf("JSON gerado : %s\n", json_request);
     send_data_to_server(path, json_request, type_method);
