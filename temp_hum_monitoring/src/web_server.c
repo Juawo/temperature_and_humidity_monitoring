@@ -55,7 +55,7 @@ void send_data_to_server(const char *path, char *request_body, const char *type_
     }
 }
 
-void create_request(char *id, float temperature, float humidity)
+void create_request(char *id, float temperature, float humidity, float bpm, float spo2)
 {
     const char *type_method = "POST";
     const char *path = SERVER_PATH;
@@ -64,8 +64,10 @@ void create_request(char *id, float temperature, float humidity)
     snprintf(json_request, sizeof(json_request),
              "{ \"id\" : \"%s\", "
              "\"Temperature\" : %.2f, "
-             "\"Humidade\" : %.2f }",
-             id, temperature, humidity);
+             "\"Umidade\" : %.2f , "
+             "\"BPM\" : %.2f ,"
+             "\"SpO2\" : %.2f }",
+             id, temperature, humidity, bpm, spo2);
 
     printf("JSON gerado : %s\n", json_request);
     send_data_to_server(path, json_request, type_method);

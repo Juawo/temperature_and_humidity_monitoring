@@ -15,9 +15,9 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.2.0)
+set(sdkVersion 1.5.1)
 set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.2.0)
+set(picotoolVersion 1.5.1)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
@@ -40,6 +40,7 @@ add_executable(temp_hum_monitoring
     src/temperature_sensor.c
     src/web_server.c
     src/wifi_connection.c
+    src/max30100.c
 )
 
 pico_set_program_name(temp_hum_monitoring "temp_hum_monitoring")
@@ -53,6 +54,7 @@ pico_enable_stdio_usb(temp_hum_monitoring 1)
 target_link_libraries(temp_hum_monitoring
         hardware_gpio
         hardware_adc
+        hardware_i2c
         pico_cyw43_arch_lwip_threadsafe_background        
         pico_stdlib)
 

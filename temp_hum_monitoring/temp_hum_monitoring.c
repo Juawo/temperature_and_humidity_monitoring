@@ -5,35 +5,38 @@
 #include "temperature_sensor.h"
 #include "web_server.h"
 #include "wifi_connection.h"
+#include "max30100.h"  // Incluir o cabeçalho do MAX30100
 
-int main()
-{
+int main() {
     stdio_init_all();
     setup_wifi();
 
-    // I2C Initialisation. Using it at 400Khz.
-    i2c_init(I2C_PORT, 400*1000);
-    
+    // Inicialização do I2C
+    i2c_init(I2C_PORT, 400 * 1000); // I2C em 400kHz
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA);
     gpio_pull_up(I2C_SCL);
-    // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
 
-    // Example to turn on the Pico W LED
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    
-    // Identificador da placa
+    // Inicializar o sensor MAX30100
+    init_max30100(I2C_PORT);
+
+    // Exemplo de Identificador da placa
     char* id = "placa_kd";
-    float temp, hum;
+    float temp, hum, bpm, spo2;
 
-    while (true)
-    {
-        if (aht10_read(&temp, &hum)){
-            create_request(id, temp, hum);
+    while (true) {
+        if (aht10_read(&temp, &hum)) {
+            // Ler os dados do MAX30100
+            read_max30100(I2C_PORT, &bpm, &spo2);
+            
+            // Registrar os dados com o ID da placa, temperatura, umidade, BPM e SpO2
+            create_request(id, temp, hum, bpm, spo2);
         }
-        sleep_ms(2000);
+
+        sleep_ms(2000); // Espera de 2 segundos entre as leituras
     }
+
     cyw43_arch_deinit();
     return 0;
 }
