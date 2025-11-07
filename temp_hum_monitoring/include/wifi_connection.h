@@ -7,7 +7,7 @@
 
 #define WIFI_SSID "Foflado"
 #define WIFI_PASSWORD "bethoven" // Caso a rede não possua senha, coloque NULL
-    
+
 void setup_wifi();
 
 #endif
