@@ -1,15 +1,10 @@
-# Generated Cmake Pico project file
-
 cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Initialise pico_sdk from installed location
-# (note this can come from environment, CMake cache etc)
-
-# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
+# --- Configuração do VS Code (Deixe como está) ---
 if(WIN32)
     set(USERHOME $ENV{USERPROFILE})
 else()
@@ -22,58 +17,47 @@ set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
-# ====================================================================================
+# --- Fim da Configuração ---
+
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 
-# Pull in Raspberry Pi Pico SDK (must be before project)
+# Puxar o SDK
 include(pico_sdk_import.cmake)
 
 project(temp_hum_monitoring C CXX ASM)
 
-# Initialise the Raspberry Pi Pico SDK
+# Inicializar o SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
-
+# Adicionar o executável com todos os seus arquivos .c
 add_executable(temp_hum_monitoring 
     temp_hum_monitoring.c 
     src/temperature_sensor.c
-    src/web_server.c
+    src/http_client.c        # (Use web_server.c, o último que te mandei)
     src/wifi_connection.c
 )
 
-pico_set_program_name(temp_hum_monitoring "temp_hum_monitoring")
-pico_set_program_version(temp_hum_monitoring "0.1")
-
-# Modify the below lines to enable/disable output over UART/USB
+# Configurar STDI/O (Saída de printfs)
 pico_enable_stdio_uart(temp_hum_monitoring 0)
 pico_enable_stdio_usb(temp_hum_monitoring 1)
 
-# Add the standard library to the build
-target_link_libraries(temp_hum_monitoring
-        hardware_gpio
-        hardware_adc
-        pico_cyw43_arch_lwip_threadsafe_background        
-        pico_stdlib)
-
-# Add the standard include files to the build
+# Adicionar os includes (pastas .h)
 target_include_directories(temp_hum_monitoring PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-        ${PICO_SDK_PATH}/lib/lwip/src/include
-        ${PICO_SDK_PATH}/lib/lwip/src/include/arch
-        ${PICO_SDK_PATH}/lib/lwip/src/include/lwip
         include
 )
 
-target_sources(temp_hum_monitoring PRIVATE
-    ${PICO_SDK_PATH}/lib/lwip/src/apps/http/httpd.c
-    ${PICO_SDK_PATH}/lib/lwip/src/apps/http/fs.c
+# --- AQUI ESTÁ A CORREÇÃO ---
+# Linkar todas as bibliotecas necessárias em UM só bloco
+target_link_libraries(temp_hum_monitoring PRIVATE
+    pico_stdlib
+    hardware_i2c
+    hardware_gpio
+
+    # Esta é a biblioteca "mágica" que inclui
+    # Wi-Fi, lwIP, TCP e DNS, tudo que precisamos.
+    pico_cyw43_arch_lwip_threadsafe_background
 )
 
-# Add any user requested libraries
-target_link_libraries(temp_hum_monitoring 
-        hardware_i2c
-        )
-
+# Gerar os arquivos .uf2, .elf
 pico_add_extra_outputs(temp_hum_monitoring)
-
