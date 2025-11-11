@@ -10,9 +10,11 @@
 #include "lwip/tcp.h"
 #include "lwip/pbuf.h"
 #include "lwip/dns.h" // <-- PRECISAMOS DISSO
+#include <stdbool.h>
+
 
 // ATUALIZE COM SEUS DADOS DO NGROK
-#define SERVER_HOST "madalyn-thoroughgoing-continuedly.ngrok-free.dev"
+#define SERVER_HOST "marvin-fatless-saliently.ngrok-free.dev"
 #define SERVER_PORT 80
 #define SERVER_PATH "/dados" // Mude para "/dados" ou seu endpoint real
 
@@ -26,5 +28,6 @@
  * @param humidity 
  */
 void create_request(char *id, float temperature, float humidity);
+bool is_http_request_in_progress(void);
 
 #endif
