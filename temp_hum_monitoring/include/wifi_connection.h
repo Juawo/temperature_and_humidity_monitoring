@@ -5,8 +5,8 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
-#define WIFI_SSID "Vertical20"
-#define WIFI_PASSWORD "Soft#2025"// Caso a rede não possua senha, coloque NULL
+#define WIFI_SSID "IFPI02"
+#define WIFI_PASSWORD NULL // Caso a rede não possua senha, coloque NULL
 
 void setup_wifi();
 

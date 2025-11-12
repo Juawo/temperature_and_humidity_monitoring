@@ -1,19 +1,25 @@
-// Em: src/http_client.c (ou web_server.c)
+// Em: http_client.c
 
-#include "http_client.h" // (ou web_server.h)
+#include "http_client.h"
 #include <stdbool.h>
 
-static volatile bool g_request_in_progress = false;
+// --- NOSSAS VARIÁVEIS GLOBAIS DE ESTADO ---
+static volatile bool g_request_in_progress = false; // Flag de "ocupado"
+static bool g_ip_is_valid = false;           // Flag se já temos o IP
+static ip_addr_t g_server_ip;                // Onde vamos salvar o IP
+// ------------------------------------------
 
 typedef struct HTTP_REQUEST_STATE_T
 {
     struct tcp_pcb *pcb;
     char json_payload[256];
-    ip_addr_t server_ip;
 } HTTP_REQUEST_STATE_T;
 
+// Protótipo (declaração) de uma função que vamos precisar
+static err_t http_connect_to_ip(HTTP_REQUEST_STATE_T *state);
+
 /**
- * @brief Libera a memória e fecha a conexão. (Esta é a função CRÍTICA)
+ * @brief Libera a memória, fecha a conexão E LIBERA A FLAG.
  */
 static err_t http_close_connection(HTTP_REQUEST_STATE_T *state)
 {
@@ -38,9 +44,7 @@ static err_t http_close_connection(HTTP_REQUEST_STATE_T *state)
         free(state);
     }
 
-    // A LINHA MAIS IMPORTANTE:
-    // Diz ao 'main' loop que a rede está livre.
-    g_request_in_progress = false;
+    g_request_in_progress = false; // Libera a rede para o 'main'
     printf("Conexão fechada. Rede está livre.\n");
     return err;
 }
@@ -50,9 +54,8 @@ static err_t http_close_connection(HTTP_REQUEST_STATE_T *state)
  */
 static err_t http_sent_callback(void *arg, struct tcp_pcb *tpcb, u16_t len)
 {
-    HTTP_REQUEST_STATE_T *state = (HTTP_REQUEST_STATE_T *)arg;
     printf("Dados enviados com sucesso (Bytes: %d)!\n", len);
-    return http_close_connection(state); // Fecha e libera a flag
+    return http_close_connection((HTTP_REQUEST_STATE_T *)arg); // Fecha e libera a flag
 }
 
 /**
@@ -63,13 +66,12 @@ static err_t http_connect_callback(void *arg, struct tcp_pcb *tpcb, err_t err)
     if (err != ERR_OK)
     {
         printf("Erro ao conectar ao servidor: %d\n", err);
-        return http_close_connection((HTTP_REQUEST_STATE_T *)arg); // CORREÇÃO: Chama o close no erro
+        return http_close_connection((HTTP_REQUEST_STATE_T *)arg);
     }
 
     HTTP_REQUEST_STATE_T *state = (HTTP_REQUEST_STATE_T *)arg;
     printf("Conectado ao servidor! Enviando POST...\n");
 
-    // Monta a requisição HTTP
     char request_buffer[512];
     snprintf(request_buffer, sizeof(request_buffer),
              "POST %s HTTP/1.1\r\n"
@@ -92,7 +94,7 @@ static err_t http_connect_callback(void *arg, struct tcp_pcb *tpcb, err_t err)
     if (write_err != ERR_OK)
     {
         printf("Erro ao enviar dados (tcp_write): %d\n", write_err);
-        return http_close_connection(state); // CORREÇÃO: Chama o close no erro
+        return http_close_connection(state);
     }
 
     return ERR_OK;
@@ -108,56 +110,65 @@ static void http_dns_found_callback(const char *name, const ip_addr_t *ipaddr, v
     if (ipaddr == NULL)
     {
         printf("Falha no DNS: Host '%s' nao encontrado.\n", name);
-        // CORREÇÃO: Chama o close no erro
         http_close_connection(state);
         return;
     }
 
-    state->server_ip = *ipaddr;
     printf("DNS OK: Host '%s' tem o IP: %s\n", name, ip4addr_ntoa(ipaddr));
+    
+    // --- LÓGICA DE CACHE ---
+    // Salvamos o IP para uso futuro
+    g_server_ip = *ipaddr;
+    g_ip_is_valid = true;
+    // ----------------------
 
+    // Agora, conectamos ao IP (usando a função de conexão)
+    http_connect_to_ip(state);
+}
+
+/**
+ * @brief (Nova Função) Inicia a conexão TCP usando o IP (salvo ou novo).
+ */
+static err_t http_connect_to_ip(HTTP_REQUEST_STATE_T *state) {
     cyw43_arch_lwip_begin();
     state->pcb = tcp_new();
     if (state->pcb == NULL)
     {
         printf("Erro ao criar pcb\n");
         cyw43_arch_lwip_end();
-        // CORREÇÃO: Chama o close no erro
-        http_close_connection(state);
-        return;
+        return http_close_connection(state); // Chama o 'close' no erro
     }
 
     tcp_arg(state->pcb, state);
-    err_t err = tcp_connect(state->pcb, &state->server_ip, SERVER_PORT, http_connect_callback);
+    
+    // Conecta usando o IP que já temos (g_server_ip)
+    err_t err = tcp_connect(state->pcb, &g_server_ip, SERVER_PORT, http_connect_callback);
     cyw43_arch_lwip_end();
 
     if (err != ERR_OK)
     {
         printf("Erro ao iniciar conexao TCP: %d\n", err);
-        // CORREÇÃO: Chama o close no erro
-        http_close_connection(state);
+        http_close_connection(state); // Chama o 'close' no erro
     }
+    return err;
 }
+
 
 /**
  * @brief Função principal que o main.c vai chamar.
  */
 void create_request(char *id, float temperature, float humidity)
 {
-    if (g_request_in_progress)
-    {
-        // Esta mensagem não deveria mais aparecer se o 'main' estiver correto
-        printf("HTTP em progresso, pulando esta medição.\n");
-        return;
+    if (g_request_in_progress) {
+        return; // Não deveria acontecer se o 'main' estiver correto
     }
-
     g_request_in_progress = true; // Seta a flag
 
     HTTP_REQUEST_STATE_T *state = (HTTP_REQUEST_STATE_T *)calloc(1, sizeof(HTTP_REQUEST_STATE_T));
     if (state == NULL)
     {
         printf("Falha ao alocar memoria para o state\n");
-        g_request_in_progress = false; // CORREÇÃO: Libera a flag se 'calloc' falhar
+        g_request_in_progress = false; // Libera a flag
         return;
     }
 
@@ -169,22 +180,32 @@ void create_request(char *id, float temperature, float humidity)
 
     printf("JSON gerado: %s\n", state->json_payload);
 
-    cyw43_arch_lwip_begin();
-    err_t err = dns_gethostbyname(SERVER_HOST, &state->server_ip, http_dns_found_callback, state);
-    cyw43_arch_lwip_end();
+    // --- LÓGICA DE CACHE ---
+    if (g_ip_is_valid) {
+        // Se já temos o IP, pulamos o DNS e conectamos direto
+        printf("Usando IP salvo do cache: %s\n", ip4addr_ntoa(&g_server_ip));
+        http_connect_to_ip(state);
+    } 
+    else {
+        // Se é a primeira vez, fazemos o DNS
+        printf("Primeira requisição, buscando DNS...\n");
+        cyw43_arch_lwip_begin();
+        err_t err = dns_gethostbyname(SERVER_HOST, &g_server_ip, http_dns_found_callback, state);
+        cyw43_arch_lwip_end();
 
-    if (err == ERR_OK)
-    {
-        // O IP já estava em cache, o callback foi chamado imediatamente
-        // A flag será limpa dentro do callback
+        if (err == ERR_OK)
+        {
+            // O IP já estava no cache do lwIP (raro, mas acontece)
+            g_ip_is_valid = true;
+            http_connect_to_ip(state); // Conecta direto
+        }
+        else if (err != ERR_INPROGRESS)
+        {
+            printf("Erro ao iniciar DNS: %d\n", err);
+            http_close_connection(state);
+        }
+        // Se err == ERR_INPROGRESS, esperamos o callback (http_dns_found_callback)
     }
-    else if (err != ERR_INPROGRESS)
-    {
-        printf("Erro ao iniciar DNS: %d\n", err);
-        // CORREÇÃO: Chama o close no erro
-        http_close_connection(state);
-    }
-    // Se err == ERR_INPROGRESS, esperamos a rede...
 }
 
 /**

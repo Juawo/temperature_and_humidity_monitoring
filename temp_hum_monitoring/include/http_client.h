@@ -14,7 +14,7 @@
 
 
 // ATUALIZE COM SEUS DADOS DO NGROK
-#define SERVER_HOST "marvin-fatless-saliently.ngrok-free.dev"
+#define SERVER_HOST "madalyn-thoroughgoing-continuedly.ngrok-free.dev"
 #define SERVER_PORT 80
 #define SERVER_PATH "/dados" // Mude para "/dados" ou seu endpoint real
 
